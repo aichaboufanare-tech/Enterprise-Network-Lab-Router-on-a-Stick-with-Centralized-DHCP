@@ -1,0 +1,282 @@
+Perfect 👌
+Here is the **complete DHCP Server configuration guide in English**, including how to disable the firewall properly.
+
+---
+
+# 🖥️ Full DHCP Server Configuration (Ubuntu – GNS3 Lab)
+
+## 🎯 Objective
+
+* Install ISC DHCP Server
+* Assign a static IP to the server (`192.168.100.10`)
+* Create DHCP pools for multiple VLANs
+* Disable firewall (for lab purposes)
+* Enable DHCP Relay from routers
+
+---
+
+# ✅ STEP 1 — Update the System
+
+```bash
+sudo apt update
+sudo apt upgrade -y
+```
+
+---
+
+# ✅ STEP 2 — Install ISC DHCP Server
+
+If you saw:
+
+```
+isc-dhcp-server: command not found
+```
+
+It means the package is not installed.
+
+Install it:
+
+```bash
+sudo apt install isc-dhcp-server -y
+```
+
+Wait until installation finishes.
+
+---
+
+# ✅ STEP 3 — Identify Network Interface
+
+Run:
+
+```bash
+ip a
+```
+
+Look for your active interface name, such as:
+
+* `ens33`
+* `enp0s3`
+* `eth0`
+
+Save this name — we will use it in the next step.
+
+---
+
+# ✅ STEP 4 — Specify the Interface for DHCP
+
+Edit the file:
+
+```bash
+sudo nano /etc/default/isc-dhcp-server
+```
+
+Find this line:
+
+```
+INTERFACESv4=""
+```
+
+Replace it with your interface name:
+
+Example:
+
+```
+INTERFACESv4="ens33"
+```
+
+Save and exit:
+
+* F3
+* Enter
+* F2
+
+---
+
+# ✅ STEP 5 — Configure DHCP Pools
+
+Open:
+
+```bash
+sudo nano /etc/dhcp/dhcpd.conf
+```
+
+Replace the content with:
+
+```bash
+authoritative;
+
+subnet 192.168.10.0 netmask 255.255.255.0 {
+  range 192.168.10.100 192.168.10.200;
+  option routers 192.168.10.1;
+  option domain-name-servers 8.8.8.8;
+}
+
+subnet 192.168.20.0 netmask 255.255.255.0 {
+  range 192.168.20.100 192.168.20.200;
+  option routers 192.168.20.1;
+  option domain-name-servers 8.8.8.8;
+}
+
+subnet 192.168.30.0 netmask 255.255.255.0 {
+  range 192.168.30.100 192.168.30.200;
+  option routers 192.168.30.1;
+  option domain-name-servers 8.8.8.8;
+}
+
+subnet 192.168.40.0 netmask 255.255.255.0 {
+  range 192.168.40.100 192.168.40.200;
+  option routers 192.168.40.1;
+  option domain-name-servers 8.8.8.8;
+}
+```
+
+Save and exit.
+
+---
+
+# ✅ STEP 6 — Assign Static IP Address (Very Important)
+
+The router will point to:
+
+```
+ip helper-address 192.168.100.10
+```
+
+So the server must have a static IP.
+
+Edit netplan:
+
+```bash
+sudo nano /etc/netplan/*.yaml
+```
+
+Example configuration:
+
+```yaml
+network:
+  version: 2
+  ethernets:
+    ens33:
+      dhcp4: no
+      addresses:
+        - 192.168.100.10/24
+      gateway4: 192.168.100.1
+      nameservers:
+        addresses: [8.8.8.8]
+```
+
+Apply:
+
+```bash
+sudo netplan apply
+```
+
+Verify:
+
+```bash
+ip a
+```
+
+You should see:
+
+```
+192.168.100.10
+```
+
+---
+
+# ✅ STEP 7 — Disable Firewall (Lab Environment)
+
+Sometimes UFW blocks DHCP traffic.
+
+Disable it using the correct command:
+
+```bash
+sudo ufw disable
+```
+
+Check status:
+
+```bash
+sudo ufw status
+```
+
+It should say:
+
+```
+Status: inactive
+```
+
+⚠️ Note: Disabling firewall is acceptable in a lab environment only.
+
+---
+
+# ✅ STEP 8 — Start DHCP Service
+
+Restart the service:
+
+```bash
+sudo systemctl restart isc-dhcp-server
+```
+
+Check status:
+
+```bash
+sudo systemctl status isc-dhcp-server
+```
+
+It must show:
+
+```
+active (running)
+```
+
+If there is an error:
+
+```bash
+sudo journalctl -xe
+```
+
+---
+
+# ✅ STEP 9 — Router Configuration (CRITICAL)
+
+On each VLAN gateway interface:
+
+```bash
+interface e0/0.20
+ip helper-address 192.168.100.10
+
+interface e0/1.10
+ip helper-address 192.168.100.10
+```
+
+This converts DHCP broadcast into unicast.
+
+---
+
+# 🧪 FINAL TEST
+
+On VPCS:
+
+```bash
+ip dhcp
+show ip
+```
+
+If the PC receives an IP from the correct range → SUCCESS ✅
+
+---
+
+# 🎯 Success Checklist
+
+✔ Server has static IP
+✔ Server reachable from router (ping 192.168.100.10)
+✔ Routing works
+✔ ip helper-address configured
+✔ Firewall disabled (for lab)
+✔ DHCP service running
+
+---
+
+If you want, I can now explain **how DHCP works step-by-step (Discover → Offer → Request → Acknowledge)** inside your topology.
